@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Claude Sessions</title>
+    <link rel="stylesheet" href="../plugin-ui.css">
+    <style>
+        .cs-stage { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: var(--pl-space-6); }
+        .cs-card { display: flex; flex-direction: column; align-items: center; gap: var(--pl-space-5); max-width: 360px; width: 100%; }
+        .cs-title { margin: 0; font-size: var(--pl-fz-xl); font-weight: var(--pl-fw-semi); }
+        .cs-status { text-align: center; font-size: var(--pl-fz-sm); color: var(--pl-text-tertiary); min-height: 1em; }
+        .cs-status.is-error { color: var(--pl-danger); }
+        #screen { width: 240px; height: 280px; display: block; }
+    </style>
+<script src="../pluginlibrary.js"></script>
+</head>
+<body>
+    <div class="cs-stage">
+        <div class="cs-card">
+            <h1 class="cs-title">Claude Sessions</h1>
+            <div class="pl-device">
+                <img id="screen" alt="">
+                <canvas id="offline" width="240" height="280" hidden></canvas>
+            </div>
+            <div class="cs-status" id="status">Connecting…</div>
+        </div>
+    </div>
+
+    <script src="../plugin-ui.js"></script>
+    <script src="script.js"></script>
+    <script>
+        let config = loadConfiguration();
+        let isActive = false;
+        let pollTimer = null;
+        let imageSeq = null;  // image the tag shows
+        let ledSeq = null;    // LED state the ring shows
+        let doneSeq = null;   // finished pattern to report on the next poll
+        let stopPattern = null;
+        let offline = false;
+
+        function setStatus(text, isError) {
+            const el = document.getElementById('status');
+            el.textContent = text || '';
+            el.classList.toggle('is-error', !!isError);
+        }
+
+        function stopLeds() {
+            if (stopPattern) stopPattern();
+            stopPattern = null;
+        }
+
+        function applyLed(seq, led) {
+            stopLeds();
+            if (led.steps) {
+                stopPattern = playSteps(led.steps, led.repeat, function () {
+                    stopPattern = null;
+                    doneSeq = seq;
+                });
+            } else {
+                showRing(led.ring);
+            }
+        }
+
+        function showOffline(message) {
+            setStatus(message, true);
+            if (offline) return;
+            offline = true;
+            imageSeq = ledSeq = null;
+            stopLeds();
+            const canvas = document.getElementById('offline');
+            drawOffline(canvas, 'busytag-claude not running');
+            document.getElementById('screen').src = canvas.toDataURL('image/png');
+            busyTagPlugin.setImage(canvasToBase64Png(canvas));
+            showRing(new Array(LED_COUNT).fill('000000'));
+        }
+
+        async function pollOnce() {
+            let frame;
+            try {
+                const done = doneSeq;
+                frame = await fetchFrame(config.port, imageSeq, done);
+                if (doneSeq === done) doneSeq = null;
+            } catch (err) {
+                showOffline('Daemon unreachable: ' + (err && err.message ? err.message : err));
+                return;
+            }
+            if (!isActive) return;
+            offline = false;
+            if (!frame.connected) {
+                // First poll after activating: the daemon connects on its next tick.
+                setStatus('Waiting for the daemon…');
+                return;
+            }
+            if (frame.image) {
+                busyTagPlugin.setImage(frame.image);
+                document.getElementById('screen').src = 'data:image/png;base64,' + frame.image;
+                imageSeq = frame.image_seq;
+            }
+            if (frame.led_seq !== ledSeq) {
+                applyLed(frame.led_seq, frame.led);
+                ledSeq = frame.led_seq;
+            }
+            setStatus('Updated ' + new Date().toLocaleTimeString());
+        }
+
+        function startPolling() {
+            stopPolling();
+            imageSeq = ledSeq = doneSeq = null;  // the tag may show another plugin's screen; redraw
+            offline = false;
+            pollOnce();
+            pollTimer = setInterval(pollOnce, POLL_MS);
+        }
+
+        function stopPolling() {
+            if (pollTimer) clearInterval(pollTimer);
+            pollTimer = null;
+            stopLeds();
+        }
+
+        window.addEventListener('busytag:initialized', function (event) {
+            if (event.detail) config = loadConfiguration(event.detail);
+        });
+
+        window.addEventListener('busytag:activated', function () {
+            isActive = true;
+            startPolling();
+        });
+
+        window.addEventListener('busytag:deactivated', function () {
+            isActive = false;
+            stopPolling();
+        });
+
+        window.addEventListener('busytag:configUpdated', function (event) {
+            if (event.detail) config = loadConfiguration(event.detail);
+            if (isActive) startPolling();
+        });
+    </script>
+</body>
+</html>

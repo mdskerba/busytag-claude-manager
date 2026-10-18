@@ -1,0 +1,35 @@
+{
+  "http_port": 47621,
+  "transport": "usb",
+  "device_port": null,
+  "flash_on_input": true,
+  "flash_color": "FF5500",
+  "flash_times": 2,
+  "flash_fade": 40,
+  "flash_on_ms": 250,
+  "working_spinner": true,
+  "spinner_color": "000C38",
+  "spinner_fade": 360,
+  "brightness": null,
+  "colors": {
+    "needs_input": "FF5500",
+    "error": "300000",
+    "working": "0040FF",
+    "done": "063000",
+    "idle": "000000",
+    "none": "000000"
+  },
+  "idle_timeout_minutes": 30,
+  "busy_timeout_minutes": 120,
+  "reconnect_seconds": 2,
+  "port_busy_retry_seconds": 10,
+  "manage_busytag_app": true,
+  "busytag_app_name": "BusyTag",
+  "handback_after_minutes": 3,
+  "project_names": {
+    "~/code/acme-web": "Acme Web"
+  },
+  "usage_bar": true,
+  "usage_poll_seconds": 120,
+  "cowork": true
+}

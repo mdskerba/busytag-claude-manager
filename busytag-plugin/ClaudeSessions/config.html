@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Claude Sessions Configuration</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 0; padding: 16px; background-color: #f5f5f5; color: #222; }
+        h1 { font-size: 18px; margin: 0 0 8px; }
+        p.intro { color: #555; font-size: 13px; margin: 0 0 16px; line-height: 1.4; }
+        .form-group { display: flex; flex-direction: column; gap: 6px; margin-bottom: 16px; }
+        label { font-weight: bold; font-size: 13px; }
+        input { padding: 8px; border: 1px solid #ccc; border-radius: 4px; font-size: 13px; }
+        .status-row { padding: 8px 12px; border-radius: 4px; font-size: 13px; background: #eee; color: #666; }
+        .status-row.found { background: #e7f5e6; color: #226d22; }
+        .status-row.missing { background: #fdebeb; color: #8a2424; }
+        .footnote { color: #777; font-size: 11px; line-height: 1.4; }
+    </style>
+<script src="../pluginlibrary.js"></script>
+</head>
+<body>
+    <h1>Claude Sessions</h1>
+    <p class="intro">Shows what the busytag-claude daemon on this Mac reports: each Claude Code and
+        Cowork session's status, and an orange flash when one needs your input. Set
+        <code>"transport": "app"</code> in <code>~/.config/busytag-claude/config.json</code> so the
+        daemon leaves the USB port to this app.</p>
+
+    <div class="form-group">
+        <label for="port">Daemon port</label>
+        <input type="number" id="port" min="1" max="65535" value="47621">
+    </div>
+    <div class="status-row" id="daemonStatus">Checking for the daemon…</div>
+    <p class="footnote">The status only shows while this plugin is on the tag. To keep it there,
+        make it the only enabled plugin, or give it a long display time.</p>
+
+    <script src="script.js"></script>
+    <script>
+        let config = loadConfiguration();
+
+        async function checkDaemon() {
+            const row = document.getElementById('daemonStatus');
+            try {
+                const frame = await fetchFrame(config.port, null, null);
+                row.className = 'status-row found';
+                row.textContent = 'Daemon running on port ' + config.port;
+                if (frame.image) busyTagPlugin.updatePreview(frame.image);
+            } catch (err) {
+                row.className = 'status-row missing';
+                row.textContent = 'Daemon not reachable on port ' + config.port + ' — run ./install.sh';
+            }
+        }
+
+        function persistFromForm() {
+            config = loadConfiguration({ port: document.getElementById('port').value });
+            busyTagPlugin.saveConfig(config);
+            checkDaemon();
+        }
+
+        window.addEventListener('busytag:initialized', function (event) {
+            if (event.detail) config = loadConfiguration(event.detail);
+            document.getElementById('port').value = String(config.port);
+            checkDaemon();
+        });
+
+        window.addEventListener('busytag:configRequested', persistFromForm);
+        document.getElementById('port').addEventListener('change', persistFromForm);
+    </script>
+</body>
+</html>

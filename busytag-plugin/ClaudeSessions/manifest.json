@@ -1,0 +1,10 @@
+{
+  "id": "claude-sessions",
+  "name": "Claude Sessions",
+  "description": "Shows your Claude Code and Cowork sessions from the busytag-claude daemon: each session's status, and an orange flash when one needs your input.",
+  "version": "1.0.0",
+  "author": "busytag-claude",
+  "hasInteractiveMode": true,
+  "iconBackgroundColor": "#1A1A1A",
+  "supportedPlatforms": ["macos"]
+}
